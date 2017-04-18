@@ -11,7 +11,7 @@ public class PassengerController {
     private PassengerRepository passengerRepository;
 
     /*
-        Get passenger by ID
+        Read passenger by ID
     */
     @RequestMapping(path="/passenger/{id}")
     public Passenger getPassenger(@PathVariable("id")Long id, @RequestParam(value="json") String json) {
@@ -35,6 +35,7 @@ public class PassengerController {
              pass = new Passenger(firstname, lastname, age, gender, phone);
              passengerRepository.save(pass);
         }catch(Exception e){
+            System.out.println("Error in creating new passenger "+pass);
             return null;
         }
 
