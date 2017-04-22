@@ -1,23 +1,45 @@
 package com.airlines;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 
 @RestController
+@Transactional
 public class PassengerController {
     @Autowired //to get the bean called PassengerRepository
 
     private PassengerRepository passengerRepository;
 
     /*
-        Read passenger by ID
+        Read passenger by ID and display by JSON
     */
-    @RequestMapping(path="/passenger/{id}")
-    public Passenger getPassenger(@PathVariable("id")Long id, @RequestParam(value="json") String json) {
+    @RequestMapping(path="/passenger/{id}",
+                    method = RequestMethod.GET,
+                    params="json=true",
+                    produces = {"application/json"})
+    public Passenger getPassengerJson(@PathVariable("id")Long id, @RequestParam(value="json") String json) {
         if(passengerRepository.findOne(id) == null)
             System.out.println("No passengers found");
         return passengerRepository.findOne(id);
+    }
+
+    /*
+        Read passenger by ID for xml
+    */
+    @RequestMapping(path="/passenger/{id}",
+            method = RequestMethod.GET,
+            params="xml=true",
+            produces = {"application/xml"})
+    public Passenger getPassenger(@PathVariable("id")Long id,
+                                  @RequestParam(value="xml") String xml) {
+        System.out.println("------------------------xml--------------------------");
+        Passenger passenger = passengerRepository.findOne(id);
+        if(passenger == null)
+            return null;
+
+        return passenger;
     }
 
     /*
