@@ -1,43 +1,52 @@
 package com.airlines;
 
-import org.springframework.beans.factory.annotation.Autowired;
-
 import javax.persistence.*;
 import java.util.List;
 
 @Entity
 @Table(name="reservation")
-@SequenceGenerator(name = "seq", allocationSize = 50)
 public class Reservation {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq")
-    private String orderNumber;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long orderNumber;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "passenger", referencedColumnName = "id")
     private Passenger passenger;
-    private int price; // sum of each flight’s price.
+
+    private int price; // sum of each flight’s price../gradle
+
+    @OneToMany(cascade = CascadeType.ALL)
     private List<Flight> flights;
 
-    Flight flight;
+    //returning data does not work without a default constructor
+    public Reservation(){}
 
-    public Reservation(String orderNumber, Passenger passenger, List flights) {
+    public Reservation(Passenger passenger, int price, List flights) {
 
         int totalPrice = 0;
-        this.orderNumber = orderNumber;
         this.passenger = passenger;
         this.flights = flights;
 
         for(Flight flight : this.flights){
             totalPrice += flight.getPrice();
         }
-        this.price = totalPrice;
+        System.out.println("------------flight total price----------"+totalPrice);
+        this.price = price;
     }
 
-    //getter setter orderNumber
-    public String getOrderNumber(){
+    //getter for orderNumber
+    public Long getOrderNumber(){
         return this.orderNumber;
     }
-    public void setOrderNumber(String orderNumber){
-        this.orderNumber = orderNumber;
+
+    //getter setter flights
+    public List getFlights(){
+        return this.flights;
+    }
+    public void setFlights(List flights) {
+        this.flights = flights;
     }
 
     //getter setter price
