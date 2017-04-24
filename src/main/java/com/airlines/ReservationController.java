@@ -15,7 +15,9 @@ public class ReservationController {
     @Autowired
     private PassengerRepository passengerRepository;
 
-    Flight flight;
+    @Autowired
+    private FlightRepository flightRepository;
+
 
     /*
         Read reservation by orderNumber
@@ -72,18 +74,21 @@ public class ReservationController {
                                     @RequestParam(value="flightsRemoved") List flightsRemoved) {
 
         Reservation reservation= null;
+        List<Flight> flightsToAdd = flightsAdded;
+        List<Flight> flightsToRemove = flightsRemoved;
+
         try{
             reservation = reservationRepository.findOne(number);
             List flights =  reservation.getFlights();
 
             //add flights
-            for(Flight flight: flightsAdded) {
-//                flights.add(flight);
+            for(Flight flight: flightsToAdd) {
+                flights.add(flight);
             }
 
             //remove flights
-            for(Flight flight: flightsRemoved) {
-//                flights.add(flight);
+            for(Flight flight: flightsToRemove) {
+                flights.remove(flight);
             }
 
             reservation.setFlights(flights);
@@ -98,14 +103,25 @@ public class ReservationController {
     }
 
     /*
-        Delete reservation by orderNumber
+        Cancel reservation by orderNumber
     */
     @RequestMapping(path="/reservation/{number}", method = RequestMethod.DELETE)
     public String deleteReservation(@PathVariable("number")Long number) {
 
         Reservation reservation= null;
+        int seatsToUpdate = 0;
         try{
             reservation = reservationRepository.findOne(number);
+            List<Flight> flights = reservation.getFlights();
+
+            for(Flight flight: flights) {
+                System.out.println(flight);
+
+                //update passenger seat remaining
+                seatsToUpdate = flight.getSeatsLeft();
+                flight.setSeatsLeft(seatsToUpdate + 1);
+            }
+
             reservationRepository.delete(reservation);
         }catch (Exception e){
             System.out.println("Error in deleting reservation "+e);
@@ -113,5 +129,35 @@ public class ReservationController {
         }
 
         return "Successfully deleted reservation";
+    }
+
+    /*
+        Search reservation by orderNumber
+    */
+    @RequestMapping(path="/reservation", method = RequestMethod.DELETE)
+    public Reservation searchReservation(@RequestParam(value="passengerId") Long passengerId,
+                                         @RequestParam(value="from") String from,
+                                         @RequestParam(value="to") String to,
+                                         @RequestParam(value="flightNumber") Long flightNumber) {
+
+        Reservation reservation;
+
+        try{
+
+            //search by passenger by id & flights by from, to, flightNumber
+            Passenger passenger = passengerRepository.findOne(passengerId);
+            Flight flight = flightRepository.findOne(flightNumber);
+
+            reservation = reservationRepository.findByPassengerAndFlights(passenger, flight);
+
+            System.out.println("---------------------------------------------");
+            System.out.println(reservation);
+
+        }catch (Exception e){
+            System.out.println("Error in deleting reservation "+e);
+            return null;
+        }
+
+        return null;
     }
 }
