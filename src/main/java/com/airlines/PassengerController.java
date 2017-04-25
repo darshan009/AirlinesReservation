@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.*;
 @Transactional
 public class PassengerController {
     @Autowired //to get the bean called PassengerRepository
-
     private PassengerRepository passengerRepository;
+
+    @Autowired
+    private ReservationRepository reservationRepository;
 
     /*
         Read passenger by ID and display by JSON
@@ -104,6 +106,12 @@ public class PassengerController {
         Passenger pass = null;
         try {
             pass = passengerRepository.findOne(id);
+
+            //delete/cancel all reservations made by this passenger
+            for(Reservation reservation: pass.getReservation()){
+                reservationRepository.delete(reservation.getOrderNumber());
+            }
+
             passengerRepository.delete(pass);
 
         }catch(Exception e){

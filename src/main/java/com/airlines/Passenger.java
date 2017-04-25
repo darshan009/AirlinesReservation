@@ -1,10 +1,11 @@
 package com.airlines;
 
 import javax.persistence.*;
+import java.util.List;
 
 
 @Entity //indicates that we are using JPA
-@Table(name="passenger")
+@Table(name="passenger", uniqueConstraints={@UniqueConstraint(columnNames = {"phone"})})
 public class Passenger {
 
     @Id
@@ -16,6 +17,9 @@ public class Passenger {
     private int age;
     private String gender;
     private Long phone; // Phone numbers must be unique ...
+
+    @OneToMany(mappedBy = "passengerId")
+    private List<Reservation> reservation;
 
     public Passenger() { }
 
@@ -70,6 +74,14 @@ public class Passenger {
     }
     public Long getPhone() {
         return phone;
+    }
+
+    //getter setters for reservations
+    public void addReservations(Reservation reservation){
+        this.reservation.add(reservation);
+    }
+    public List<Reservation> getReservation(){
+        return this.reservation;
     }
 
 }

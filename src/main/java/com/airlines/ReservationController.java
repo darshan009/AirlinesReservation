@@ -40,18 +40,38 @@ public class ReservationController {
     */
     @RequestMapping(path="/reservation", method = RequestMethod.POST)
     public Reservation reservation(@RequestParam(value="passengerId") Long passengerId,
-                                   @RequestParam(value="flightLists") List flightLists) {
+                                   @RequestParam(value="flightLists") List<String> flightLists) {
 
         Reservation reservation= null;
+
+        System.out.println(flightLists);
+
         try {
             int price = 120;
+            List<Flight> flights = null;
 
             Passenger passenger = passengerRepository.findOne(passengerId);
             if(passenger != null) {
 
+                //get flights from the above list
+                for(String flight: flightLists){
+                    flights.add(flightRepository.findOne(flight));
+                }
+
+                //check whether each flight has seatsLeft
+                for(Flight flight: flights){
+                    System.out.println("testing "+flight);
+                    if(flight.getSeatsLeft() <= 0) {
+                        System.out.println("Seats in flight "+flight.getFlightNumber()+" are full, unable to complete reservation.");
+                        return null;
+                    }
+                }
+
                 reservation = new Reservation(passenger, price, flightLists);
-                System.out.println(reservation);
                 reservationRepository.save(reservation);
+
+                //add reservation in passenger
+                passenger.addReservations(reservation);
 
             }else{
                 System.out.println("No passenger found");
@@ -138,7 +158,7 @@ public class ReservationController {
     public Reservation searchReservation(@RequestParam(value="passengerId") Long passengerId,
                                          @RequestParam(value="from") String from,
                                          @RequestParam(value="to") String to,
-                                         @RequestParam(value="flightNumber") Long flightNumber) {
+                                         @RequestParam(value="flightNumber") String flightNumber) {
 
         Reservation reservation;
 

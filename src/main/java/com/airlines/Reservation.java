@@ -17,6 +17,10 @@ public class Reservation {
 
     private int price; // sum of each flight’s price../gradle
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "passengerId" ,nullable = false)
+    private Passenger passengerId;
+
     @OneToMany(cascade = CascadeType.ALL)
     private List<Flight> flights;
 
