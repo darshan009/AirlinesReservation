@@ -41,11 +41,6 @@ public class FlightController {
         try{
             //flightRepository.findOne(Long.valueOf(number));
             if (flightRepository.findOne(number) == null) {
-                HashMap<String,Map> hashMap=new HashMap<String,Map>();
-                HashMap<String, String> multiValueMap=new HashMap<String, String>();
-                multiValueMap.put("code","404");
-                multiValueMap.put("msg","No flight found");
-                hashMap.put("Badrequest",multiValueMap);
 
                 return new ResponseEntity(noFlightFound(), HttpStatus.NOT_FOUND);
             }
