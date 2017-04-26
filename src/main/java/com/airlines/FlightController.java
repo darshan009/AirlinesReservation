@@ -1,36 +1,66 @@
 package com.airlines;
 
+import org.apache.coyote.Response;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import javax.transaction.Transactional;
+import java.util.*;
 
-import java.util.Date;
+import org.springframework.util.MultiValueMap;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 
 /**
  * Created by nehakumar on 4/19/17.
  */
 
+
 @RestController
+@Transactional
 public class FlightController {
    @Autowired //to get the bean called FlightRepository
     private FlightRepository flightRepository;
 
+    private HashMap noFlightFound(){
+        HashMap<String,Map> hashMap=new HashMap<String,Map>();
+        HashMap<String, String> multiValueMap=new HashMap<String, String>();
+        multiValueMap.put("code","404");
+        multiValueMap.put("msg","No flight found");
+        hashMap.put("Badrequest",multiValueMap);
+        return hashMap;
+    }
 
-    //Get flight by flighNumber
+    //Get flight by flighNumber-return json
+    //@Token.Consumes("application/json")
+    //@Produces("application/json")
     @RequestMapping(path="/flight/{flightNumber}",method = RequestMethod.GET)
-    public Flight getFlight(@PathVariable("flightNumber")Long number) {
-        if(flightRepository.findOne(number) == null)
-            //System.out.println("No flight found");
-            return null;
-        return flightRepository.findOne(number);
+    public ResponseEntity getFlight(@PathVariable("flightNumber")String number) {
+        try{
+            //flightRepository.findOne(Long.valueOf(number));
+            if (flightRepository.findOne(number) == null) {
+                HashMap<String,Map> hashMap=new HashMap<String,Map>();
+                HashMap<String, String> multiValueMap=new HashMap<String, String>();
+                multiValueMap.put("code","404");
+                multiValueMap.put("msg","No flight found");
+                hashMap.put("Badrequest",multiValueMap);
+
+                return new ResponseEntity(noFlightFound(), HttpStatus.NOT_FOUND);
+            }
+            else {
+                return new ResponseEntity(flightRepository.findOne(number), HttpStatus.OK);
+            }
+        }catch (Exception e){
+           return new ResponseEntity(e.toString(),HttpStatus.BAD_REQUEST);
+        }
     }
 
 
-    //    Create Flight
-
+    //Create Flight
     @RequestMapping(path="/flight/{flightNumber}", method = RequestMethod.POST)
-    public @ResponseBody Flight flight(@PathVariable("flightNumber") Long flightnumber,
+    public @ResponseBody Flight flight(@PathVariable("flightNumber") String flightnumber,
                                        @RequestParam(value="price") int price,
                                        @RequestParam(value="dest_from") String dest_from,
                                        @RequestParam(value="dest_from") String dest_to,
@@ -52,48 +82,56 @@ public class FlightController {
 
     //Update flight
     @RequestMapping(path="/flight/{flightNumber}", method = RequestMethod.PUT)
-    public @ResponseBody Flight updateFlight(@PathVariable("flightNumber") Long flightNumber,
+    public @ResponseBody ResponseEntity updateFlight(@PathVariable("flightNumber") String flightNumber,
                                        @RequestParam(value="price") int price,
                                        @RequestParam(value="dest_from") String dest_from,
                                        @RequestParam(value="dest_from") String dest_to,
                                        @RequestParam(value="departureTime") Date departureTime,
                                        @RequestParam(value="arrivalTime") Date arrivalTime,
-                                       @RequestParam(value="seats_left") int seats_left,
+                                      // @RequestParam(value="seats_left") int seats_left,
                                        @RequestParam(value="description") String description){
 
         Flight flight = null;
         try {
 
-            if(flightRepository.findOne(flightNumber) == null)
+            if(flightRepository.findOne(flightNumber) == null){
                 System.out.println("No flight found");
+                return new ResponseEntity(noFlightFound(), HttpStatus.NOT_FOUND);
+            }
+
             else {
                 flight = flightRepository.findOne(flightNumber);
+                flight.setPrice(price);
                 flight.setArrivalTime(arrivalTime);
-                flight.setSeatsLeft(seats_left);
+                //flight.setSeatsLeft(seats_left);
                 flight.setDepartureTime(departureTime);
                 flight.setDescription(description);
                 flight.setFrom(dest_from);
                 flight.setTo(dest_to);
-                // flight = new Flight(flightNumber,price,dest_from,dest_to,departureTime,arrivalTime, seats_left, description);
                 flightRepository.save(flight);
+                return new ResponseEntity(flightRepository.findOne(flightNumber), HttpStatus.OK);
+
+
             }
         }catch(Exception e){
-            //string msg[]={"msg":"Bad request"};
-            return null;//"Unable to find flight"+e.toString();
+
+            return new ResponseEntity(e.toString(),HttpStatus.BAD_REQUEST);
         }
-        return flight;
 
     }
 
     //Delete flight by flight number
     @RequestMapping(path="/flight/{flightNumber}",method = RequestMethod.DELETE)
-    public String deleteFlight(@PathVariable("flightNumber")Long number) {
-        if(flightRepository.findOne(number) == null)
+    public ResponseEntity deleteFlight(@PathVariable("flightNumber")String number) {
+        if(flightRepository.findOne(number) == null) {
             //System.out.println("No flight found");
-            return "No flight found";
-        else
+            //return "No flight found";
+            return new ResponseEntity(noFlightFound(), HttpStatus.OK);
+        }
+        else{
             flightRepository.delete(number);
-        return "flight deleted successfully";
+            return new ResponseEntity(flightRepository.findOne(number), HttpStatus.OK);
+        }
     }
 
 
