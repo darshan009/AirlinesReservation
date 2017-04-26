@@ -17,16 +17,16 @@ public class Flight {
     //private String number; // Each flight has a unique flight number.
     @Id
     //@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq")
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long flightnumber; // Each flight has a unique flight number.
+    //@GeneratedValue(strategy = GenerationType.AUTO)
+    private String flightnumber; // Each flight has a unique flight number.
     private int price;
 
     //  Date format: yy-mm-dd-hh, do not include minutes and sceonds.
     //Example: 2017-03-22-19
      //  The system only needs to supports PST. You can ignore other time zones.
-    @DateTimeFormat(pattern = "yyyy-dd-MM-hh")
+    @DateTimeFormat(pattern = "yy-dd-MM-hh")
     private Date departureTime;
-    @DateTimeFormat(pattern = "yyyy-dd-MM-hh")
+    @DateTimeFormat(pattern = "yy-dd-MM-hh")
     private Date arrivalTime;
     private int seatsLeft;
     private String description;
@@ -38,7 +38,8 @@ public class Flight {
     //constructors
     public Flight(){ }
 
-    public Flight(int price,String from,String to, Date departureTime, Date arrivalTime, int seatsLeft, String description){
+    public Flight(String flightnumber,int price,String from,String to, Date departureTime, Date arrivalTime, int seatsLeft, String description){
+        this.flightnumber=flightnumber;
         this.price=price;
         this.dest_from=from;
         this.dest_to=to;
@@ -49,10 +50,10 @@ public class Flight {
     }
 
     //getter setters
-    /*public void setFlightNumber(String flightNumber){
-        this.number=flightNumber;
-    }*/
-    public Long getFlightNumber(){
+    public void setFlightNumber(String flightNumber){
+        this.flightnumber=flightNumber;
+    }
+    public String getFlightNumber(){
         return this.flightnumber;
     }
 
@@ -108,3 +109,4 @@ public class Flight {
     }
 
 }
+
