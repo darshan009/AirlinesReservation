@@ -32,13 +32,14 @@ public class Flight {
     private String description;
     private String dest_from;
     private String dest_to;
-    //private Plane plane;  // Embedded
+    @Embedded
+    public Plane plane;  // Embedded
     //private List<Passenger> passengers;
 
     //constructors
     public Flight(){ }
 
-    public Flight(String flightnumber,int price,String from,String to, Date departureTime, Date arrivalTime, int seatsLeft, String description){
+    public Flight(String flightnumber,int price,String from,String to, Date departureTime, Date arrivalTime, int seatsLeft,String description){//}, Plane plane){
         this.flightnumber=flightnumber;
         this.price=price;
         this.dest_from=from;
@@ -47,6 +48,7 @@ public class Flight {
         this.arrivalTime=arrivalTime;
         this.seatsLeft=seatsLeft;
         this.description=description;
+        //this.plane=plane;
     }
 
     //getter setters
@@ -107,6 +109,15 @@ public class Flight {
     public String getDescription(){
         return this.description;
     }
+
+    public Plane getPlane() {
+        return this.plane;
+    }
+
+    public void setPlane(Plane plane) {
+        this.plane = plane;
+    }
+
 
 }
 

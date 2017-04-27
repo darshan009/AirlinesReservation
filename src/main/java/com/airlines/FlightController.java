@@ -7,6 +7,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import javax.transaction.Transactional;
 import java.util.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+
 
 import org.springframework.util.MultiValueMap;
 import org.springframework.http.HttpStatus;
@@ -21,7 +24,7 @@ import org.springframework.http.ResponseEntity;
 @RestController
 @Transactional
 public class FlightController {
-   @Autowired //to get the bean called FlightRepository
+    @Autowired //to get the bean called FlightRepository
     private FlightRepository flightRepository;
 
     private HashMap noFlightFound(){
@@ -36,55 +39,79 @@ public class FlightController {
     //Get flight by flighNumber-return json
     //@Token.Consumes("application/json")
     //@Produces("application/json")
-    @RequestMapping(path="/flight/{flightNumber}",method = RequestMethod.GET)
+    @RequestMapping(path="/flight/{flightNumber}",method = RequestMethod.GET,produces={"application/json"})
     public ResponseEntity getFlight(@PathVariable("flightNumber")String number) {
         try{
-            //flightRepository.findOne(Long.valueOf(number));
             if (flightRepository.findOne(number) == null) {
-
                 return new ResponseEntity(noFlightFound(), HttpStatus.NOT_FOUND);
             }
             else {
                 return new ResponseEntity(flightRepository.findOne(number), HttpStatus.OK);
             }
         }catch (Exception e){
-           return new ResponseEntity(e.toString(),HttpStatus.BAD_REQUEST);
+            return new ResponseEntity(e.toString(),HttpStatus.BAD_REQUEST);
         }
     }
 
+    /*
+     Read flight by ID for xml
+   */
+    @RequestMapping(path="/flight/{id}",
+            method = RequestMethod.GET,
+            params="xml=true",
+            produces = {"application/xml"})
+    public ResponseEntity getFlight(@PathVariable("flightNumber")String number,
+                                  @RequestParam(value="xml") String xml) {
+        System.out.println("------------------------xml--------------------------");
+        Flight flight = flightRepository.findOne(number);
+        if(flight == null)
+            return new ResponseEntity(noFlightFound(), HttpStatus.NOT_FOUND);
+
+        return new ResponseEntity(flightRepository.findOne(number), HttpStatus.OK);
+    }
 
     //Create Flight
-    @RequestMapping(path="/flight/{flightNumber}", method = RequestMethod.POST)
-    public @ResponseBody Flight flight(@PathVariable("flightNumber") String flightnumber,
+    @RequestMapping(path="/flight/{flightNumber}", method = RequestMethod.POST)//,params="xml=true", produces = {"application/xml"})
+    public @ResponseBody ResponseEntity flight(@PathVariable("flightNumber") String flightnumber,
                                        @RequestParam(value="price") int price,
-                                       @RequestParam(value="dest_from") String dest_from,
-                                       @RequestParam(value="dest_from") String dest_to,
-                                       @RequestParam(value="departureTime") Date departureTime,
-                                       @RequestParam(value="arrivalTime") Date arrivalTime,
-                                       @RequestParam(value="seats_left") int seats_left,
-                                       @RequestParam(value="description") String description){
+                                       @RequestParam(value="from") String from,
+                                       @RequestParam(value="to") String to,
+                                       @RequestParam(value="departureTime") String departureTime,
+                                       @RequestParam(value="arrivalTime") String arrivalTime,
+                                       //@RequestParam(value="seats_left") int seats_left,
+                                       @RequestParam(value="description") String description,
+                                       @RequestParam(value="capacity") int capacity,
+                                       @RequestParam(value="model") String model,
+                                       @RequestParam(value="manufacturer") String manufacturer,
+                                       @RequestParam(value="yearOfManufacture") int yearOfManufacture){
 
+
+        Plane plane=new Plane(capacity,model,manufacturer,yearOfManufacture);
         Flight flight = null;
         try {
-            flight = new Flight(flightnumber,price,dest_from,dest_to,departureTime,arrivalTime, seats_left, description);
-            flightRepository.save(flight);
+                DateFormat format = new SimpleDateFormat("yy-dd-MM-hh");
+                flight = new Flight(flightnumber,price,from,to,format.parse(departureTime),format.parse(arrivalTime), capacity,description);
+                flight.setPlane(plane);
+                flightRepository.save(flight);
         }catch(Exception e){
-            return null;
+
+            return new ResponseEntity(e.toString(),HttpStatus.BAD_REQUEST);
         }
-        return flight;
+
+        return new ResponseEntity(flight, HttpStatus.OK);
 
     }
 
     //Update flight
     @RequestMapping(path="/flight/{flightNumber}", method = RequestMethod.PUT)
     public @ResponseBody ResponseEntity updateFlight(@PathVariable("flightNumber") String flightNumber,
-                                       @RequestParam(value="price") int price,
-                                       @RequestParam(value="dest_from") String dest_from,
-                                       @RequestParam(value="dest_from") String dest_to,
-                                       @RequestParam(value="departureTime") Date departureTime,
-                                       @RequestParam(value="arrivalTime") Date arrivalTime,
-                                      // @RequestParam(value="seats_left") int seats_left,
-                                       @RequestParam(value="description") String description){
+                                                     @RequestParam(value="price") int price,
+                                                     @RequestParam(value="dest_from") String dest_from,
+                                                     @RequestParam(value="dest_from") String dest_to,
+                                                     @RequestParam(value="departureTime") Date departureTime,
+                                                     @RequestParam(value="arrivalTime") Date arrivalTime,
+                                                     // @RequestParam(value="seats_left") int seats_left,
+                                                     @RequestParam(value="description") String description){
 
         Flight flight = null;
         try {
