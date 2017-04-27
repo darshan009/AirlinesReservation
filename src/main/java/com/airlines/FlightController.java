@@ -27,12 +27,27 @@ public class FlightController {
     @Autowired //to get the bean called FlightRepository
     private FlightRepository flightRepository;
 
-    private HashMap noFlightFound(){
+    private HashMap noFlightFound(String number, String msg){
         HashMap<String,Map> hashMap=new HashMap<String,Map>();
         HashMap<String, String> multiValueMap=new HashMap<String, String>();
-        multiValueMap.put("code","404");
-        multiValueMap.put("msg","No flight found");
-        hashMap.put("Badrequest",multiValueMap);
+        //multiValueMap.put("code","404");
+        String code=null;
+        String response=null;
+        switch (msg) {
+            case "not found":
+                msg = "Sorry, the requested flight with number " + number + " does not exist";
+                code="404";
+                response="BadRequest";
+                break;
+            case "flight deleted":
+                msg = "Flight with number " + number + " is deleted successfully";
+                code="200";
+                response="Response";
+                break;
+        }
+        multiValueMap.put("code",code);
+        multiValueMap.put("msg",msg);//"Sorry, the requested flight with number " + number + " does not exist");
+        hashMap.put(response,multiValueMap);
         return hashMap;
     }
 
@@ -43,7 +58,7 @@ public class FlightController {
     public ResponseEntity getFlight(@PathVariable("flightNumber")String number) {
         try{
             if (flightRepository.findOne(number) == null) {
-                return new ResponseEntity(noFlightFound(), HttpStatus.NOT_FOUND);
+                return new ResponseEntity(noFlightFound(number,"not found"), HttpStatus.NOT_FOUND);
             }
             else {
                 return new ResponseEntity(flightRepository.findOne(number), HttpStatus.OK);
@@ -65,7 +80,7 @@ public class FlightController {
         System.out.println("------------------------xml--------------------------");
         Flight flight = flightRepository.findOne(number);
         if(flight == null)
-            return new ResponseEntity(noFlightFound(), HttpStatus.NOT_FOUND);
+            return new ResponseEntity(noFlightFound(number,"not found"), HttpStatus.NOT_FOUND);
 
         return new ResponseEntity(flightRepository.findOne(number), HttpStatus.OK);
     }
@@ -118,7 +133,7 @@ public class FlightController {
 
             if(flightRepository.findOne(flightNumber) == null){
                 System.out.println("No flight found");
-                return new ResponseEntity(noFlightFound(), HttpStatus.NOT_FOUND);
+                return new ResponseEntity(noFlightFound(flightNumber,"not found"), HttpStatus.NOT_FOUND);
             }
 
             else {
@@ -148,11 +163,11 @@ public class FlightController {
         if(flightRepository.findOne(number) == null) {
             //System.out.println("No flight found");
             //return "No flight found";
-            return new ResponseEntity(noFlightFound(), HttpStatus.OK);
+            return new ResponseEntity(noFlightFound(number,"not found"), HttpStatus.NOT_FOUND);
         }
         else{
             flightRepository.delete(number);
-            return new ResponseEntity(flightRepository.findOne(number), HttpStatus.OK);
+            return new ResponseEntity(noFlightFound(number,"flight deleted"), HttpStatus.OK);
         }
     }
 
