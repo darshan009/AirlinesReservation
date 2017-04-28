@@ -1,11 +1,16 @@
 package com.airlines;
 
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+
 import javax.persistence.*;
+import java.util.ArrayList;
 import java.util.List;
 
 
 @Entity //indicates that we are using JPA
 @Table(name="passenger", uniqueConstraints={@UniqueConstraint(columnNames = {"phone"})})
+@JsonIdentityInfo(generator = ObjectIdGenerators.IntSequenceGenerator.class, property = "reservation")
 public class Passenger {
 
     @Id
@@ -18,8 +23,8 @@ public class Passenger {
     private String gender;
     private Long phone; // Phone numbers must be unique ...
 
-    @OneToMany(mappedBy = "passengerId")
-    private List<Reservation> reservation;
+    @OneToMany(mappedBy = "passenger")
+    private List<Reservation> reservation = new ArrayList<Reservation>();
 
     public Passenger() { }
 

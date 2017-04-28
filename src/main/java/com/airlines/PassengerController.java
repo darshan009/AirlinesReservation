@@ -1,8 +1,13 @@
 package com.airlines;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 
 @RestController
@@ -14,17 +19,58 @@ public class PassengerController {
     @Autowired
     private ReservationRepository reservationRepository;
 
+
+    private HashMap noPassengerFound(Long number, String msg){
+        HashMap<String,Map> hashMap = new HashMap<String,Map>();
+        HashMap<String, String> multiValueMap = new HashMap<String, String>();
+
+        String code=null;
+        String response=null;
+
+        switch (msg) {
+            case "not found":
+                msg = "Passenger with id " + number + " does not exist";
+                code ="404";
+                response ="BadRequest";
+                break;
+            case "passenger deleted":
+                msg = "Passenger with number " + number + " is deleted successfully";
+                code ="200";
+                response ="Response";
+                break;
+        }
+
+        multiValueMap.put("code",code);
+        multiValueMap.put("msg",msg);
+        hashMap.put(response,multiValueMap);
+
+        return hashMap;
+    }
+
     /*
         Read passenger by ID and display by JSON
     */
     @RequestMapping(path="/passenger/{id}",
                     method = RequestMethod.GET,
-                    params="json=true",
                     produces = {"application/json"})
-    public Passenger getPassengerJson(@PathVariable("id")Long id, @RequestParam(value="json") String json) {
-        if(passengerRepository.findOne(id) == null)
-            System.out.println("No passengers found");
-        return passengerRepository.findOne(id);
+    public ResponseEntity getPassengerJson(@PathVariable("id")Long id) {
+
+        try {
+
+            Passenger passenger = passengerRepository.findOne(id);
+
+            //check if passenger exists
+            if(passenger == null) {
+                return new ResponseEntity(noPassengerFound(id, "not found"), HttpStatus.NOT_FOUND);
+            }
+
+            return new ResponseEntity(passenger, HttpStatus.OK);
+
+        }catch (Exception e){
+            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+        }
+
+
     }
 
     /*
@@ -34,21 +80,28 @@ public class PassengerController {
             method = RequestMethod.GET,
             params="xml=true",
             produces = {"application/xml"})
-    public Passenger getPassenger(@PathVariable("id")Long id,
+    public ResponseEntity getPassenger(@PathVariable("id")Long id,
                                   @RequestParam(value="xml") String xml) {
-        System.out.println("------------------------xml--------------------------");
-        Passenger passenger = passengerRepository.findOne(id);
-        if(passenger == null)
-            return null;
 
-        return passenger;
+        try {
+            Passenger passenger = passengerRepository.findOne(id);
+
+            //check if passenger exists
+            if(passenger == null)
+                return new ResponseEntity(noPassengerFound(id, "not found"), HttpStatus.NOT_FOUND);
+
+            return new ResponseEntity(passenger, HttpStatus.OK);
+
+        }catch (Exception e){
+            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+        }
     }
 
     /*
         Create Passenger
     */
     @RequestMapping(path="/passenger", method = RequestMethod.POST)
-    public @ResponseBody Passenger passenger(@RequestParam(value="firstname") String firstname,
+    public ResponseEntity passenger(@RequestParam(value="firstname") String firstname,
                                @RequestParam(value="lastname") String lastname,
                                @RequestParam(value="age") int age,
                                @RequestParam(value="gender") String gender,
@@ -58,12 +111,12 @@ public class PassengerController {
         try {
              pass = new Passenger(firstname, lastname, age, gender, phone);
              passengerRepository.save(pass);
-        }catch(Exception e){
-            System.out.println("Error in creating new passenger "+pass);
-            return null;
-        }
 
-        return pass;
+             return new ResponseEntity(pass, HttpStatus.OK);
+
+        }catch(Exception e){
+            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+        }
 
     }
 
@@ -71,7 +124,7 @@ public class PassengerController {
         Update Passenger
     */
     @RequestMapping(path="/passenger/{id}", method = RequestMethod.PUT)
-    public @ResponseBody Passenger updatePassenger(@PathVariable("id")Long id,
+    public ResponseEntity updatePassenger(@PathVariable("id")Long id,
                                                 @RequestParam(value="firstname") String firstname,
                                                 @RequestParam(value="lastname") String lastname,
                                                 @RequestParam(value="age") int age,
@@ -82,6 +135,11 @@ public class PassengerController {
         Passenger pass = null;
         try {
             pass = passengerRepository.findOne(id);
+
+            //check if passenger exists
+            if(pass == null)
+                return new ResponseEntity(noPassengerFound(id, "not found"), HttpStatus.NOT_FOUND);
+
             pass.setFirstname(firstname);
             pass.setLastname(lastname);
             pass.setAge(age);
@@ -89,11 +147,11 @@ public class PassengerController {
             pass.setPhone(phone);
             passengerRepository.save(pass);
 
-        }catch(Exception e){
-            return null;
-        }
+            return new ResponseEntity(pass, HttpStatus.OK);
 
-        return pass;
+        }catch(Exception e){
+            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+        }
 
     }
 
@@ -101,11 +159,15 @@ public class PassengerController {
         Delete Passenger
     */
     @RequestMapping(path="/passenger/{id}", method = RequestMethod.DELETE)
-    public @ResponseBody String deletePassenger(@PathVariable("id")Long id) {
+    public ResponseEntity deletePassenger(@PathVariable("id")Long id) {
 
         Passenger pass = null;
         try {
             pass = passengerRepository.findOne(id);
+
+            //check if passenger exists
+            if(pass == null)
+                return new ResponseEntity(noPassengerFound(id, "not found"), HttpStatus.NOT_FOUND);
 
             //delete/cancel all reservations made by this passenger
             for(Reservation reservation: pass.getReservation()){
@@ -114,11 +176,11 @@ public class PassengerController {
 
             passengerRepository.delete(pass);
 
-        }catch(Exception e){
-            return "Error deleting user"+e.toString();
-        }
+            return new ResponseEntity("passenger deleted", HttpStatus.OK);
 
-        return "User successfully deleted!";
+        }catch(Exception e){
+            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+        }
 
     }
 
