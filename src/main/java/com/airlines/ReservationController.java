@@ -24,7 +24,10 @@ public class ReservationController {
     private FlightRepository flightRepository;
 
 
-    private HashMap noReservationFound(Long number, String msg){
+    /*
+        Error json format display
+     */
+    private HashMap noReservationFound(Long number, String msg, String err){
         HashMap<String,Map> hashMap = new HashMap<String,Map>();
         HashMap<String, String> multiValueMap = new HashMap<String, String>();
 
@@ -42,9 +45,40 @@ public class ReservationController {
                 code ="404";
                 response ="BadRequest";
                 break;
+            case "no seats left":
+                msg = "No seats left in the flight";
+                code ="404";
+                response ="BadRequest";
+                break;
             case "reservation cancelled":
                 msg = "Reservation with number " + number + " is cancelled successfully";
                 code ="200";
+                response ="Response";
+                break;
+            //for error codes
+            case "error reading reservation":
+                msg = "Error in reading reservation "+err;
+                code ="400";
+                response ="Response";
+                break;
+            case "error creating reservation":
+                msg = "Error in creating reservation "+err;
+                code ="400";
+                response ="Response";
+                break;
+            case "error updating reservation":
+                msg = "Error in updating reservation "+err;
+                code ="400";
+                response ="Response";
+                break;
+            case "error cancelling reservation":
+                msg = "Error in deleting reservation "+err;
+                code ="400";
+                response ="Response";
+                break;
+            case "error searching reservation":
+                msg = "Error in searching reservation "+err;
+                code ="400";
                 response ="Response";
                 break;
         }
@@ -71,12 +105,12 @@ public class ReservationController {
 
             //check if reservation exists or not
             if(reservation == null)
-                return new ResponseEntity( noReservationFound(number, "not found"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity( noReservationFound(number, "not found", null), HttpStatus.NOT_FOUND);
 
             return new ResponseEntity(reservation, HttpStatus.OK);
 
         }catch (Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity( noReservationFound(null, "error reading reservation", e.toString() ) , HttpStatus.BAD_REQUEST);
         }
 
     }
@@ -84,7 +118,9 @@ public class ReservationController {
     /*
         Create reservation by orderNumber
     */
-    @RequestMapping(path="/reservation", method = RequestMethod.POST)
+    @RequestMapping(path="/reservation",
+                    method = RequestMethod.POST,
+                    produces = {"application/xml"})
     public ResponseEntity reservation(@RequestParam(value="passengerId") Long passengerId,
                                    @RequestParam(value="flightLists") List<String> flightLists) {
 
@@ -103,10 +139,12 @@ public class ReservationController {
                     flights.add(flightRepository.findOne(flight));
                 }
 
-                //check whether each flight has seatsLeft
+                //check whether each flight has seatsLeft, if yes then subtract one seat for this reservation
                 for(Flight flight: flights){
                     if(flight.getSeatsLeft() <= 0) {
-                        return null;
+                        return new ResponseEntity( noReservationFound( null, "no seats left", null), HttpStatus.BAD_REQUEST);
+                    }else{
+                        flight.setSeatsLeft(flight.getSeatsLeft() - 1);
                     }
                 }
 
@@ -119,40 +157,60 @@ public class ReservationController {
                 return new ResponseEntity(reservation, HttpStatus.OK);
 
             }else{
-                return new ResponseEntity( noReservationFound(passengerId, "passenger not found"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity( noReservationFound(passengerId, "passenger not found", null), HttpStatus.NOT_FOUND);
             }
 
         }catch (Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity(noReservationFound(null, "error creating reservation ", e.toString() ), HttpStatus.BAD_REQUEST);
         }
     }
 
     /*
         Update reservation by orderNumber
     */
-    @RequestMapping(path="/reservation/{number}", method = RequestMethod.PUT)
+    @RequestMapping(path="/reservation/{number}", method = RequestMethod.POST)
     public ResponseEntity updateReservation(@PathVariable("number")Long number,
-                                   @RequestParam(value="flightsAdded") List<String> flightsAdded,
-                                    @RequestParam(value="flightsRemoved") List<String> flightsRemoved) {
+                                   @RequestParam(value="flightsAdded", required = false) List<String> flightsAdded,
+                                    @RequestParam(value="flightsRemoved", required = false) List<String> flightsRemoved) {
 
         Reservation reservation= null;
 
         try{
             reservation = reservationRepository.findOne(number);
 
-            if(reservation != null) {
+            if(reservation != null && flightsAdded != null && flightsRemoved != null) {
+
+                //get the original price
+                int originalPrice = reservation.getPrice();
 
                 List<Flight> flights =  reservation.getFlights();
 
-                //add flights
+                //add flights, calculate the price and manage seatsLeft
                 for(String flight: flightsAdded) {
-                    flights.add( flightRepository.findOne(flight) );
+                    Flight flightToAdd = flightRepository.findOne(flight);
+                    flights.add( flightToAdd );
+
+                    //calculate the price
+                    originalPrice += flightToAdd.getPrice();
+
+                    //subtract seats from the newly added flights
+                    flightToAdd.setSeatsLeft(flightToAdd.getSeatsLeft() - 1);
                 }
 
-                //remove flights
-                for(String flight: flightsAdded) {
-                    flights.remove( flightRepository.findOne(flight) );
+                //remove flights, calculate the price and manage seatsLeft
+                for(String flight: flightsRemoved) {
+                    Flight flightToRemove = flightRepository.findOne(flight);
+                    flights.remove( flightToRemove );
+
+                    //calculate the price
+                    originalPrice -= flightToRemove.getPrice();
+
+                    //add seats to the removed flights
+                    flightToRemove.setSeatsLeft(flightToRemove.getSeatsLeft() + 1);
                 }
+
+                //update the price
+                reservation.setPrice(originalPrice);
 
                 reservation.setFlights(flights);
                 reservationRepository.save(reservation);
@@ -160,11 +218,11 @@ public class ReservationController {
                 return new ResponseEntity(reservation, HttpStatus.OK);
 
             }else{
-                return new ResponseEntity( noReservationFound(number, "not found"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity( noReservationFound(number, "not found", null), HttpStatus.NOT_FOUND);
             }
 
         }catch (Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity( noReservationFound(null, "error updating reservation", e.toString() ) , HttpStatus.BAD_REQUEST);
         }
 
     }
@@ -176,7 +234,7 @@ public class ReservationController {
     public ResponseEntity deleteReservation(@PathVariable("number")Long number) {
 
         Reservation reservation= null;
-        int seatsToUpdate = 0;
+
         try{
             reservation = reservationRepository.findOne(number);
 
@@ -186,23 +244,25 @@ public class ReservationController {
                 List<Flight> flights = reservation.getFlights();
 
                 for (Flight flight : flights) {
-                    System.out.println(flight);
 
                     //update passenger seat remaining
-                    seatsToUpdate = flight.getSeatsLeft();
-                    flight.setSeatsLeft(seatsToUpdate + 1);
+                    flight.setSeatsLeft(flight.getSeatsLeft() + 1);
                 }
+
+                //remove reservation from the reservation list in passenger
+                Passenger passenger = passengerRepository.findOne( (reservation.getPassenger()).getId() );
+                passenger.removeReservations(reservation);
 
                 reservationRepository.delete(reservation);
 
-                return new ResponseEntity( noReservationFound(number, "reservation cancelled"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity( noReservationFound(number, "reservation cancelled", null), HttpStatus.OK);
 
             }else{
-                return new ResponseEntity( noReservationFound(number, "not found"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity( noReservationFound(number, "not found", null), HttpStatus.NOT_FOUND);
             }
 
         }catch (Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity( noReservationFound(null, "error cancelling reservation", e.toString() ) , HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -226,16 +286,13 @@ public class ReservationController {
             reservation = reservationRepository.findByPassengerAndFlights(passenger, flight);
 
             if(reservation != null) {
-                System.out.println("---------------------------------------------");
-                System.out.println(reservation);
-
                 return new ResponseEntity(reservation, HttpStatus.OK);
             }else{
-                return new ResponseEntity("not found", HttpStatus.NOT_FOUND);
+                return new ResponseEntity( noReservationFound(null, "not found", null) , HttpStatus.NOT_FOUND);
             }
 
         }catch (Exception e){
-            return new ResponseEntity("not found", HttpStatus.NOT_FOUND);
+            return new ResponseEntity( noReservationFound(null, "error searching reservation", e.toString() ) , HttpStatus.BAD_REQUEST);
         }
 
     }

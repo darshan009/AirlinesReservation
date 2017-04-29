@@ -20,7 +20,10 @@ public class PassengerController {
     private ReservationRepository reservationRepository;
 
 
-    private HashMap noPassengerFound(Long number, String msg){
+    /*
+        Error json format display
+     */
+    private HashMap noPassengerFound(Long number, String msg, String err){
         HashMap<String,Map> hashMap = new HashMap<String,Map>();
         HashMap<String, String> multiValueMap = new HashMap<String, String>();
 
@@ -31,6 +34,26 @@ public class PassengerController {
             case "not found":
                 msg = "Passenger with id " + number + " does not exist";
                 code ="404";
+                response ="BadRequest";
+                break;
+            case "error reading passenger":
+                msg = "Error in reading passenger "+err;
+                code ="400";
+                response ="BadRequest";
+                break;
+            case "error creating passenger":
+                msg = "Error in creating new passenger "+err;
+                code ="400";
+                response ="BadRequest";
+                break;
+            case "error updating passenger":
+                msg = "Error in updating new passenger "+err;
+                code ="400";
+                response ="BadRequest";
+                break;
+            case "error deleting passenger":
+                msg = "Error in deleting new passenger "+err;
+                code ="400";
                 response ="BadRequest";
                 break;
             case "passenger deleted":
@@ -61,7 +84,7 @@ public class PassengerController {
 
             //check if passenger exists
             if(passenger == null) {
-                return new ResponseEntity(noPassengerFound(id, "not found"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity(noPassengerFound(id, "not found", null), HttpStatus.NOT_FOUND);
             }
 
             return new ResponseEntity(passenger, HttpStatus.OK);
@@ -88,12 +111,12 @@ public class PassengerController {
 
             //check if passenger exists
             if(passenger == null)
-                return new ResponseEntity(noPassengerFound(id, "not found"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity(noPassengerFound(id, "not found", null), HttpStatus.NOT_FOUND);
 
             return new ResponseEntity(passenger, HttpStatus.OK);
 
         }catch (Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity(noPassengerFound(null, "error reading passenger", e.toString() ), HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -115,7 +138,7 @@ public class PassengerController {
              return new ResponseEntity(pass, HttpStatus.OK);
 
         }catch(Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity(noPassengerFound(null, "error creating passenger", e.toString() ), HttpStatus.BAD_REQUEST);
         }
 
     }
@@ -138,7 +161,7 @@ public class PassengerController {
 
             //check if passenger exists
             if(pass == null)
-                return new ResponseEntity(noPassengerFound(id, "not found"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity(noPassengerFound(id, "not found", null), HttpStatus.NOT_FOUND);
 
             pass.setFirstname(firstname);
             pass.setLastname(lastname);
@@ -150,7 +173,7 @@ public class PassengerController {
             return new ResponseEntity(pass, HttpStatus.OK);
 
         }catch(Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity(noPassengerFound(null, "error updating passenger", e.toString() ), HttpStatus.BAD_REQUEST);
         }
 
     }
@@ -167,10 +190,15 @@ public class PassengerController {
 
             //check if passenger exists
             if(pass == null)
-                return new ResponseEntity(noPassengerFound(id, "not found"), HttpStatus.NOT_FOUND);
+                return new ResponseEntity(noPassengerFound(id, "not found", null), HttpStatus.NOT_FOUND);
 
-            //delete/cancel all reservations made by this passenger
+            //cancel all reservations made by this passenger and update the number of seats for the booked flights
             for(Reservation reservation: pass.getReservation()){
+
+                //get the flight list from each reservation and update the seats for each
+                for(Flight flight: reservation.getFlights())
+                    flight.setSeatsLeft(flight.getSeatsLeft() + 1);
+
                 reservationRepository.delete(reservation.getOrderNumber());
             }
 
@@ -179,7 +207,7 @@ public class PassengerController {
             return new ResponseEntity("passenger deleted", HttpStatus.OK);
 
         }catch(Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity(noPassengerFound(null, "error deleting passenger", e.toString() ), HttpStatus.BAD_REQUEST);
         }
 
     }

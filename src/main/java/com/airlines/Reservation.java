@@ -18,11 +18,13 @@ public class Reservation {
 
     private int price; // sum of each flight’s price../gradle
 
-    @OneToOne(cascade = CascadeType.ALL)
+    //(cascade = CascadeType.ALL) causes it to delete the mapped parent field/child field as well
+
+    @OneToOne
     @JoinColumn(name = "passenger", referencedColumnName = "id")
     private Passenger passenger;
 
-    @OneToMany(cascade = CascadeType.ALL)
+    @OneToMany
     @JoinColumn(name="flights")
     private List<Flight> flights = new ArrayList<Flight>();
 

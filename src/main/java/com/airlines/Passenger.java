@@ -23,7 +23,8 @@ public class Passenger {
     private String gender;
     private Long phone; // Phone numbers must be unique ...
 
-    @OneToMany(mappedBy = "passenger")
+    @OneToMany(cascade = CascadeType.ALL)
+    @JoinColumn(name="reservations")
     private List<Reservation> reservation = new ArrayList<Reservation>();
 
     public Passenger() { }
@@ -84,6 +85,9 @@ public class Passenger {
     //getter setters for reservations
     public void addReservations(Reservation reservation){
         this.reservation.add(reservation);
+    }
+    public void removeReservations(Reservation reservation){
+        this.reservation.remove(reservation);
     }
     public List<Reservation> getReservation(){
         return this.reservation;
