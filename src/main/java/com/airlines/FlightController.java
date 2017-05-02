@@ -26,7 +26,7 @@ import org.springframework.http.ResponseEntity;
 public class FlightController {
     @Autowired //to get the bean called FlightRepository
     private FlightRepository flightRepository;
-
+    
     private HashMap noFlightFound(String number, String msg){
         HashMap<String,Map> hashMap=new HashMap<String,Map>();
         HashMap<String, String> multiValueMap=new HashMap<String, String>();
