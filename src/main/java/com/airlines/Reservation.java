@@ -1,15 +1,12 @@
 package com.airlines;
 
-import com.fasterxml.jackson.annotation.JsonIdentityInfo;
-import com.fasterxml.jackson.annotation.ObjectIdGenerators;
-
 import javax.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name="reservation")
-@JsonIdentityInfo(generator = ObjectIdGenerators.IntSequenceGenerator.class, property = "reservation")
+//@JsonIdentityInfo(generator = ObjectIdGenerators.IntSequenceGenerator.class, property = "passenger")
 public class Reservation {
 
     @Id
@@ -24,8 +21,11 @@ public class Reservation {
     @JoinColumn(name = "passenger", referencedColumnName = "id")
     private Passenger passenger;
 
-    @OneToMany
-    @JoinColumn(name="flights")
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE},fetch = FetchType.EAGER)
+    @JoinTable(
+            name="T_RESERVATION_FLIGHT",
+            joinColumns={@JoinColumn(name="RESERVATION_NO", referencedColumnName="orderNumber")},
+            inverseJoinColumns={@JoinColumn(name="FLIGHT_ID", referencedColumnName="flightnumber")})
     private List<Flight> flights = new ArrayList<Flight>();
 
     //returning data does not work without a default constructor

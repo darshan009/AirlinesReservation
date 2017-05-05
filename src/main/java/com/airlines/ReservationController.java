@@ -1,5 +1,10 @@
 package com.airlines;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.json.JSONObject;
+import org.json.XML;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -96,18 +101,30 @@ public class ReservationController {
     /*
         Read reservation by orderNumber
     */
-    @RequestMapping(path="/reservation/{number}")
+    @RequestMapping(path="/reservation/{number}",
+                    produces = {"application/json"})
     public ResponseEntity getReservation(@PathVariable("number")Long number) {
 
         try{
 
             Reservation reservation = reservationRepository.findOne(number);
-
+            System.out.println("in modified method");
             //check if reservation exists or not
             if(reservation == null)
                 return new ResponseEntity( noReservationFound(number, "not found", null), HttpStatus.NOT_FOUND);
 
-            return new ResponseEntity(reservation, HttpStatus.OK);
+            //using objectmapper to customize output
+            ObjectMapper mapper = new ObjectMapper();
+
+            mapper.setVisibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.ANY);
+
+            String reservationAsJson = mapper.writeValueAsString(reservation);
+            reservationAsJson = reservationAsJson.substring(1, reservationAsJson.length()-2);
+
+
+            String fullOutput = "{\"reservation\":{"+reservationAsJson+"]}}";
+
+            return new ResponseEntity(fullOutput, HttpStatus.OK);
 
         }catch (Exception e){
             return new ResponseEntity( noReservationFound(null, "error reading reservation", e.toString() ) , HttpStatus.BAD_REQUEST);
@@ -144,6 +161,8 @@ public class ReservationController {
                     if(flight.getSeatsLeft() <= 0) {
                         return new ResponseEntity( noReservationFound( null, "no seats left", null), HttpStatus.BAD_REQUEST);
                     }else{
+                        //if flight has seats left the add the passenger to the flight and subtract a seat
+                        flight.addPassenger(passenger);
                         flight.setSeatsLeft(flight.getSeatsLeft() - 1);
                     }
                 }
@@ -151,10 +170,18 @@ public class ReservationController {
                 reservation = new Reservation(passenger, flights);
                 reservationRepository.save(reservation);
 
-                //add reservation in passenger
-                passenger.addReservations(reservation);
+                //using objectmapper to customize output
+                ObjectMapper mapper = new ObjectMapper();
 
-                return new ResponseEntity(reservation, HttpStatus.OK);
+                String reservationAsJson = mapper.writeValueAsString(reservation);
+                reservationAsJson = reservationAsJson.substring(1, reservationAsJson.length()-2);
+
+
+                String fullOutput = "{\"reservation\":{"+reservationAsJson+"]}}";
+
+                System.out.println(fullOutput);
+
+                return new ResponseEntity( XML.toString(new JSONObject(fullOutput)), HttpStatus.OK);
 
             }else{
                 return new ResponseEntity( noReservationFound(passengerId, "passenger not found", null), HttpStatus.NOT_FOUND);
@@ -168,7 +195,8 @@ public class ReservationController {
     /*
         Update reservation by orderNumber
     */
-    @RequestMapping(path="/reservation/{number}", method = RequestMethod.POST)
+    @RequestMapping(path="/reservation/{number}", method = RequestMethod.POST,
+                    produces = {"application/xml"})
     public ResponseEntity updateReservation(@PathVariable("number")Long number,
                                    @RequestParam(value="flightsAdded", required = false) List<String> flightsAdded,
                                     @RequestParam(value="flightsRemoved", required = false) List<String> flightsRemoved) {
@@ -182,7 +210,7 @@ public class ReservationController {
 
                 //get the original price
                 int originalPrice = reservation.getPrice();
-
+                Passenger passenger = reservation.getPassenger();
                 List<Flight> flights =  reservation.getFlights();
 
                 //add flights, calculate the price and manage seatsLeft
@@ -192,6 +220,9 @@ public class ReservationController {
 
                     //calculate the price
                     originalPrice += flightToAdd.getPrice();
+
+                    //add the passenger from the flight
+                    flightToAdd.addPassenger(passenger);
 
                     //subtract seats from the newly added flights
                     flightToAdd.setSeatsLeft(flightToAdd.getSeatsLeft() - 1);
@@ -205,6 +236,9 @@ public class ReservationController {
                     //calculate the price
                     originalPrice -= flightToRemove.getPrice();
 
+                    //remove passenger
+                    flightToRemove.removePassenger(passenger);
+
                     //add seats to the removed flights
                     flightToRemove.setSeatsLeft(flightToRemove.getSeatsLeft() + 1);
                 }
@@ -215,7 +249,18 @@ public class ReservationController {
                 reservation.setFlights(flights);
                 reservationRepository.save(reservation);
 
-                return new ResponseEntity(reservation, HttpStatus.OK);
+                //using objectmapper to customize output
+                ObjectMapper mapper = new ObjectMapper();
+
+                String reservationAsJson = mapper.writeValueAsString(reservation);
+                reservationAsJson = reservationAsJson.substring(1, reservationAsJson.length()-2);
+
+
+                String fullOutput = "{\"reservation\":{"+reservationAsJson+"]}}";
+
+                System.out.println(fullOutput);
+
+                return new ResponseEntity( new JSONObject(fullOutput), HttpStatus.OK);
 
             }else{
                 return new ResponseEntity( noReservationFound(number, "not found", null), HttpStatus.NOT_FOUND);
@@ -246,12 +291,10 @@ public class ReservationController {
                 for (Flight flight : flights) {
 
                     //update passenger seat remaining
+                    flight.removePassenger(reservation.getPassenger());
                     flight.setSeatsLeft(flight.getSeatsLeft() + 1);
-                }
 
-                //remove reservation from the reservation list in passenger
-                Passenger passenger = passengerRepository.findOne( (reservation.getPassenger()).getId() );
-                passenger.removeReservations(reservation);
+                }
 
                 reservationRepository.delete(reservation);
 
@@ -269,13 +312,12 @@ public class ReservationController {
     /*
         Search reservation by different params
     */
-    @RequestMapping(path="/reservation", method = RequestMethod.GET)
+    @RequestMapping(path="/reservation", method = RequestMethod.GET,
+                    produces = {"application/xml"})
     public ResponseEntity searchReservation(@RequestParam(value="passengerId") Long passengerId,
                                          @RequestParam(value="from") String from,
                                          @RequestParam(value="to") String to,
                                          @RequestParam(value="flightNumber") String flightNumber) {
-
-        Reservation reservation;
 
         try{
 
@@ -283,10 +325,23 @@ public class ReservationController {
             Passenger passenger = passengerRepository.findOne(passengerId);
             Flight flight = flightRepository.findOne(flightNumber);
 
-            reservation = reservationRepository.findByPassengerAndFlights(passenger, flight);
 
-            if(reservation != null) {
-                return new ResponseEntity(reservation, HttpStatus.OK);
+            List<Reservation> reservations = reservationRepository.findByPassengerAndFlights(passenger, flight);
+
+            if(reservations != null && flight != null && passenger != null) {
+
+                //using objectmapper to customize output
+                ObjectMapper mapper = new ObjectMapper();
+
+                String reservationAsJson = mapper.writeValueAsString(reservations);
+
+                String fullOutput = "{\"reservations\": {\"reservation\":"+reservationAsJson+"}}}";
+
+                System.out.println(fullOutput);
+
+                return new ResponseEntity( XML.toString(new JSONObject(fullOutput)), HttpStatus.OK);
+
+
             }else{
                 return new ResponseEntity( noReservationFound(null, "not found", null) , HttpStatus.NOT_FOUND);
             }

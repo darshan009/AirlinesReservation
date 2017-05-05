@@ -1,12 +1,17 @@
 package com.airlines;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.json.JSONObject;
+import org.json.XML;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -18,6 +23,7 @@ public class PassengerController {
 
     @Autowired
     private ReservationRepository reservationRepository;
+
 
 
     /*
@@ -57,8 +63,8 @@ public class PassengerController {
                 response ="BadRequest";
                 break;
             case "passenger deleted":
-                msg = "Passenger with number " + number + " is deleted successfully";
                 code ="200";
+                msg = "Passenger with number " + number + " is deleted successfully";
                 response ="Response";
                 break;
         }
@@ -69,6 +75,51 @@ public class PassengerController {
 
         return hashMap;
     }
+
+
+    /*
+        sort reservation according to output requirements
+     */
+    private HashMap getSortedReservation(Reservation reservation){
+        HashMap<String, Object> multiValueMap = new HashMap<String, Object>();
+        HashMap<String, Object> multiValueMapForIndividualFlights = new HashMap<String, Object>();
+        List<HashMap> multiValueMapForFlights = new ArrayList<HashMap>();
+        HashMap<String, Object> multiValueMapFixForFlights = new HashMap<String, Object>();
+
+        //orderNumber
+        multiValueMap.put("orderNumber", (reservation.getOrderNumber()).toString());
+
+        //price
+        multiValueMap.put("price", String.valueOf(reservation.getPrice()) );
+
+        //customize flight fields and then add
+        List<Flight> flights = reservation.getFlights();
+
+        //iterate through all flights and get specific fields
+        for(Flight flight: flights){
+
+            multiValueMapForIndividualFlights.put("number", flight.getFlightNumber());
+            multiValueMapForIndividualFlights.put("price", flight.getPrice());
+            multiValueMapForIndividualFlights.put("from", flight.getFrom());
+            multiValueMapForIndividualFlights.put("to", flight.getTo());
+            multiValueMapForIndividualFlights.put("departureTime", flight.getDepartureTime());
+            multiValueMapForIndividualFlights.put("arrivalTime", flight.getArrivalTime());
+            multiValueMapForIndividualFlights.put("description", flight.getDescription());
+
+            multiValueMapForFlights.add(multiValueMapForIndividualFlights);
+
+        }
+
+        multiValueMapFixForFlights.put("flight", multiValueMapForFlights);
+
+        multiValueMap.put("flights",  multiValueMapFixForFlights);
+
+        return multiValueMap;
+    }
+
+
+
+
 
     /*
         Read passenger by ID and display by JSON
@@ -87,10 +138,35 @@ public class PassengerController {
                 return new ResponseEntity(noPassengerFound(id, "not found", null), HttpStatus.NOT_FOUND);
             }
 
-            return new ResponseEntity(passenger, HttpStatus.OK);
+            //if passenger found get reservations
+            List<Reservation> reservation = reservationRepository.findByPassenger(passenger);
+
+            //get all reservations formatted
+            HashMap<String, Object> reservationsList= new HashMap<String, Object>();
+            List<HashMap> listOfReservations = new ArrayList<HashMap>();
+
+            for(Reservation reservation1: reservation){
+                listOfReservations.add(getSortedReservation(reservation1));
+            }
+
+            //using objectmapper and hashmap to customize output
+            HashMap<String, Object> reservationList = new HashMap<String, Object>();
+            ObjectMapper mapper = new ObjectMapper();
+
+            String passengerAsJson = mapper.writeValueAsString(passenger);
+            passengerAsJson = passengerAsJson.substring(1, passengerAsJson.length()-2);
+
+            reservationList.put("reservation", listOfReservations);
+            String reservationAsJson = mapper.writeValueAsString(reservationList);
+
+            String fullOutput = "{\"passenger\":{"+passengerAsJson+",\"reservations\": "+reservationAsJson+"}}";
+
+            System.out.println(fullOutput);
+
+            return new ResponseEntity(fullOutput, HttpStatus.OK);
 
         }catch (Exception e){
-            return new ResponseEntity(e.toString(), HttpStatus.BAD_REQUEST);
+            return new ResponseEntity( noPassengerFound(id, "error reading passenger", e.toString()), HttpStatus.BAD_REQUEST);
         }
 
 
@@ -113,7 +189,32 @@ public class PassengerController {
             if(passenger == null)
                 return new ResponseEntity(noPassengerFound(id, "not found", null), HttpStatus.NOT_FOUND);
 
-            return new ResponseEntity(passenger, HttpStatus.OK);
+            //if passenger found get reservations
+            List<Reservation> reservation = reservationRepository.findByPassenger(passenger);
+
+            //get all reservations formatted
+            HashMap<String, Object> reservationsList= new HashMap<String, Object>();
+            List<HashMap> listOfReservations = new ArrayList<HashMap>();
+
+            for(Reservation reservation1: reservation){
+                listOfReservations.add(getSortedReservation(reservation1));
+            }
+
+            //using objectmapper and hashmap to customize output
+            HashMap<String, Object> reservationList = new HashMap<String, Object>();
+            ObjectMapper mapper = new ObjectMapper();
+
+            String passengerAsJson = mapper.writeValueAsString(passenger);
+            passengerAsJson = passengerAsJson.substring(1, passengerAsJson.length()-2);
+
+            reservationList.put("reservation", listOfReservations);
+            String reservationAsJson = mapper.writeValueAsString(reservationList);
+
+            String fullOutput = "{\"passenger\":{"+passengerAsJson+",\"reservations\": "+reservationAsJson+"}}";
+
+            System.out.println(fullOutput);
+
+            return new ResponseEntity( XML.toString(new JSONObject(fullOutput)), HttpStatus.OK);
 
         }catch (Exception e){
             return new ResponseEntity(noPassengerFound(null, "error reading passenger", e.toString() ), HttpStatus.BAD_REQUEST);
@@ -123,19 +224,32 @@ public class PassengerController {
     /*
         Create Passenger
     */
-    @RequestMapping(path="/passenger", method = RequestMethod.POST)
+    @RequestMapping(path="/passenger", method = RequestMethod.POST,
+                    produces = {"application/json"})
     public ResponseEntity passenger(@RequestParam(value="firstname") String firstname,
                                @RequestParam(value="lastname") String lastname,
                                @RequestParam(value="age") int age,
                                @RequestParam(value="gender") String gender,
                                @RequestParam(value="phone") Long phone) {
 
-        Passenger pass = null;
+        Passenger passenger = null;
         try {
-             pass = new Passenger(firstname, lastname, age, gender, phone);
-             passengerRepository.save(pass);
+             passenger = new Passenger(firstname, lastname, age, gender, phone);
+             passengerRepository.save(passenger);
+             List<Reservation> reservation = reservationRepository.findByPassenger(passenger);
 
-             return new ResponseEntity(pass, HttpStatus.OK);
+            //using objectmapper to customize output
+            ObjectMapper mapper = new ObjectMapper();
+
+            String passengerAsJson = mapper.writeValueAsString(passenger);
+            passengerAsJson = passengerAsJson.substring(1, passengerAsJson.length()-2);
+
+            String reservationAsJson = mapper.writeValueAsString(reservation);
+
+
+            String fullOutput = "{\"passenger\":{"+passengerAsJson+",\"reservations\": {\"reservation\": "+reservationAsJson+"}}}";
+
+            return new ResponseEntity( fullOutput, HttpStatus.OK);
 
         }catch(Exception e){
             return new ResponseEntity(noPassengerFound(null, "error creating passenger", e.toString() ), HttpStatus.BAD_REQUEST);
@@ -146,7 +260,8 @@ public class PassengerController {
     /*
         Update Passenger
     */
-    @RequestMapping(path="/passenger/{id}", method = RequestMethod.PUT)
+    @RequestMapping(path="/passenger/{id}", method = RequestMethod.PUT,
+                    produces = {"application/json"})
     public ResponseEntity updatePassenger(@PathVariable("id")Long id,
                                                 @RequestParam(value="firstname") String firstname,
                                                 @RequestParam(value="lastname") String lastname,
@@ -163,6 +278,9 @@ public class PassengerController {
             if(pass == null)
                 return new ResponseEntity(noPassengerFound(id, "not found", null), HttpStatus.NOT_FOUND);
 
+            //if passenger found get reservations
+            List<Reservation> reservation = reservationRepository.findByPassenger(pass);
+
             pass.setFirstname(firstname);
             pass.setLastname(lastname);
             pass.setAge(age);
@@ -170,7 +288,29 @@ public class PassengerController {
             pass.setPhone(phone);
             passengerRepository.save(pass);
 
-            return new ResponseEntity(pass, HttpStatus.OK);
+            //get all reservations formatted
+            HashMap<String, Object> reservationsList= new HashMap<String, Object>();
+            List<HashMap> listOfReservations = new ArrayList<HashMap>();
+
+            for(Reservation reservation1: reservation){
+                listOfReservations.add(getSortedReservation(reservation1));
+            }
+
+            //using objectmapper and hashmap to customize output
+            HashMap<String, Object> reservationList = new HashMap<String, Object>();
+            ObjectMapper mapper = new ObjectMapper();
+
+            String passengerAsJson = mapper.writeValueAsString(pass);
+            passengerAsJson = passengerAsJson.substring(1, passengerAsJson.length()-2);
+
+            reservationList.put("reservation", listOfReservations);
+            String reservationAsJson = mapper.writeValueAsString(reservationList);
+
+            String fullOutput = "{\"passenger\":{"+passengerAsJson+",\"reservations\": "+reservationAsJson+"}}";
+
+            System.out.println(fullOutput);
+
+            return new ResponseEntity( fullOutput, HttpStatus.OK);
 
         }catch(Exception e){
             return new ResponseEntity(noPassengerFound(null, "error updating passenger", e.toString() ), HttpStatus.BAD_REQUEST);
@@ -181,7 +321,8 @@ public class PassengerController {
     /*
         Delete Passenger
     */
-    @RequestMapping(path="/passenger/{id}", method = RequestMethod.DELETE)
+    @RequestMapping(path="/passenger/{id}", method = RequestMethod.DELETE,
+                    produces = {"application/xml", "application/json"})
     public ResponseEntity deletePassenger(@PathVariable("id")Long id) {
 
         Passenger pass = null;
@@ -190,21 +331,27 @@ public class PassengerController {
 
             //check if passenger exists
             if(pass == null)
-                return new ResponseEntity(noPassengerFound(id, "not found", null), HttpStatus.NOT_FOUND);
+                return new ResponseEntity(new JSONObject(noPassengerFound(id, "not found", null)), HttpStatus.NOT_FOUND);
+
+            //if passenger found get reservations
+            List<Reservation> reservations = reservationRepository.findByPassenger(pass);
 
             //cancel all reservations made by this passenger and update the number of seats for the booked flights
-            for(Reservation reservation: pass.getReservation()){
+            for(Reservation reservation: reservations){
 
-                //get the flight list from each reservation and update the seats for each
-                for(Flight flight: reservation.getFlights())
+                //get the flight list from each reservation and update the seats and passengers list for each
+                for(Flight flight: reservation.getFlights()){
+                    flight.removePassenger(pass);
                     flight.setSeatsLeft(flight.getSeatsLeft() + 1);
+                }
 
                 reservationRepository.delete(reservation.getOrderNumber());
             }
 
             passengerRepository.delete(pass);
+            
 
-            return new ResponseEntity("passenger deleted", HttpStatus.OK);
+            return new ResponseEntity( XML.toString( new JSONObject( noPassengerFound(id, "passenger deleted", null) ) ), HttpStatus.OK);
 
         }catch(Exception e){
             return new ResponseEntity(noPassengerFound(null, "error deleting passenger", e.toString() ), HttpStatus.BAD_REQUEST);

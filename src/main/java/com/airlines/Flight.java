@@ -2,22 +2,14 @@ package com.airlines;
 import java.util.Date;
 import java.util.List;
 import javax.persistence.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 
-/**
- * Created by darshansapaliga on 4/15/17.
- */
 
 @Entity //indicates that we are using JPA
-//@Table(name="flight")
-//@SequenceGenerator(name = "seq", allocationSize = 50)
 public class Flight {
 
     //private String number; // Each flight has a unique flight number.
     @Id
-    //@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq")
-    //@GeneratedValue(strategy = GenerationType.AUTO)
     private String flightnumber; // Each flight has a unique flight number.
     private int price;
 
@@ -29,17 +21,28 @@ public class Flight {
     @DateTimeFormat(pattern = "yy-dd-MM-hh")
     private Date arrivalTime;
     private int seatsLeft;
+    private int flightCapacity;
     private String description;
     private String dest_from;
     private String dest_to;
+
+
     @Embedded
     public Plane plane;  // Embedded
-    //private List<Passenger> passengers;
+
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE},fetch = FetchType.EAGER)
+    @JoinTable(
+            name="FLIGHT_PASSENGERS",
+            joinColumns={@JoinColumn(name="FLIGHT_NUMBER", referencedColumnName="flightnumber")},
+            inverseJoinColumns={@JoinColumn(name="PASSENGER_ID", referencedColumnName="id")})
+    private List<Passenger> passengers;
+
+
 
     //constructors
     public Flight(){ }
 
-    public Flight(String flightnumber,int price,String from,String to, Date departureTime, Date arrivalTime, int seatsLeft,String description){//}, Plane plane){
+    public Flight(String flightnumber,int price,String from,String to, Date departureTime, Date arrivalTime, int seatsLeft, int capacity,String description){
         this.flightnumber=flightnumber;
         this.price=price;
         this.dest_from=from;
@@ -47,8 +50,8 @@ public class Flight {
         this.departureTime=departureTime;
         this.arrivalTime=arrivalTime;
         this.seatsLeft=seatsLeft;
+        this.flightCapacity=capacity;
         this.description=description;
-        //this.plane=plane;
     }
 
     //getter setters
@@ -103,6 +106,13 @@ public class Flight {
         return this.seatsLeft;
     }
 
+    public void setFlightCapacity(int flightCapacity){
+        this.flightCapacity=flightCapacity;
+    }
+    public int getFlightCapacity(){
+        return this.flightCapacity;
+    }
+
     public void setDescription(String description){
         this.description=description;
     }
@@ -116,6 +126,20 @@ public class Flight {
 
     public void setPlane(Plane plane) {
         this.plane = plane;
+    }
+
+    //getter setter flights
+    public List<Passenger> getPassengers(){
+        return this.passengers;
+    }
+    public void setPassengers(List<Passenger> passengers) {
+        this.passengers = passengers;
+    }
+    public void addPassenger(Passenger passenger) {
+        this.passengers.add(passenger);
+    }
+    public void removePassenger(Passenger passenger) {
+        this.passengers.remove(passenger);
     }
 
 
