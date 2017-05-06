@@ -11,10 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @RestController
 @Transactional
@@ -86,6 +84,16 @@ public class ReservationController {
                 code ="400";
                 response ="Response";
                 break;
+            case "overlapping dates":
+                msg = "Error creating reservation, flights have overlapping dates";
+                code ="400";
+                response ="Response";
+                break;
+            case "seating capacity exceeded":
+                msg = "Error creating reservation, flights seating capacity is exceeded";
+                code ="400";
+                response ="Response";
+                break;
         }
 
         multiValueMap.put("code",code);
@@ -96,6 +104,48 @@ public class ReservationController {
     }
 
 
+    /*
+            sort reservation according to output requirements
+         */
+    private HashMap getSortedReservation(Reservation reservation){
+        HashMap<String, Object> multiValueMap = new HashMap<String, Object>();
+        HashMap<String, Object> multiValueMapForIndividualFlights = new HashMap<String, Object>();
+        List<HashMap> multiValueMapForFlights = new ArrayList<HashMap>();
+        HashMap<String, Object> multiValueMapFixForFlights = new HashMap<String, Object>();
+
+        //for date formatting
+        SimpleDateFormat formatDate = new SimpleDateFormat("yyyy-MM-dd HH");
+
+        //orderNumber
+        multiValueMap.put("orderNumber", (reservation.getOrderNumber()).toString());
+
+        //price
+        multiValueMap.put("price", String.valueOf(reservation.getPrice()) );
+
+        //customize flight fields and then add
+        List<Flight> flights = reservation.getFlights();
+
+        //iterate through all flights and get specific fields
+        for(Flight flight: flights){
+
+            multiValueMapForIndividualFlights.put("number", flight.getFlightNumber());
+            multiValueMapForIndividualFlights.put("price", flight.getPrice());
+            multiValueMapForIndividualFlights.put("from", flight.getFrom());
+            multiValueMapForIndividualFlights.put("to", flight.getTo());
+            multiValueMapForIndividualFlights.put("departureTime", formatDate.format(flight.getDepartureTime()) );
+            multiValueMapForIndividualFlights.put("arrivalTime", formatDate.format(flight.getArrivalTime()) );
+            multiValueMapForIndividualFlights.put("description", flight.getDescription());
+
+            multiValueMapForFlights.add(multiValueMapForIndividualFlights);
+
+        }
+
+        multiValueMapFixForFlights.put("flight", multiValueMapForFlights);
+
+        multiValueMap.put("flights",  multiValueMapFixForFlights);
+
+        return multiValueMap;
+    }
 
 
     /*
@@ -118,7 +168,7 @@ public class ReservationController {
 
             mapper.setVisibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.ANY);
 
-            String reservationAsJson = mapper.writeValueAsString(reservation);
+            String reservationAsJson = mapper.writeValueAsString(getSortedReservation(reservation));
             reservationAsJson = reservationAsJson.substring(1, reservationAsJson.length()-2);
 
 
@@ -142,6 +192,8 @@ public class ReservationController {
                                    @RequestParam(value="flightLists") List<String> flightLists) {
 
         Reservation reservation= null;
+        HashMap<Date, Date> dates = new HashMap<Date, Date>();
+        Date tempDeparture, tempArrival, tempKey, tempValue;
 
         try {
 
@@ -154,17 +206,37 @@ public class ReservationController {
                 //get flights from the above list
                 for(String flight: flightLists){
                     flights.add(flightRepository.findOne(flight));
+                    dates.put( (flightRepository.findOne(flight)).getDepartureTime(), (flightRepository.findOne(flight)).getArrivalTime() );
                 }
 
                 //check whether each flight has seatsLeft, if yes then subtract one seat for this reservation
                 for(Flight flight: flights){
+
+                    //if flight has seats left && does not exceed seating capacity then add the passenger to the flight and subtract a seat
                     if(flight.getSeatsLeft() <= 0) {
                         return new ResponseEntity( noReservationFound( null, "no seats left", null), HttpStatus.BAD_REQUEST);
+                    }else if( (flight.getSeatsLeft() + 1) > flight.getFlightCapacity() ) {
+                        return new ResponseEntity(noReservationFound(null, "seating capacity exceeded", null), HttpStatus.BAD_REQUEST);
                     }else{
-                        //if flight has seats left the add the passenger to the flight and subtract a seat
                         flight.addPassenger(passenger);
                         flight.setSeatsLeft(flight.getSeatsLeft() - 1);
                     }
+
+                    //if two flights have overlapping times then break, (StartA <= EndB) and (EndA >= StartB)
+                    for (HashMap.Entry<Date, Date> date : dates.entrySet()) {
+
+                        tempDeparture = flight.getDepartureTime();
+                        tempArrival = flight.getArrivalTime();
+                        tempKey = date.getKey();
+                        tempValue = date.getValue();
+
+                        if(tempDeparture != tempKey && tempArrival != tempValue)
+                            if(tempDeparture.compareTo(tempKey) <= 0 && tempArrival.compareTo(tempValue) >= 0)
+                                return new ResponseEntity( noReservationFound(null, "overlapping dates" ,null), HttpStatus.OK );
+
+                    }
+
+
                 }
 
                 reservation = new Reservation(passenger, flights);
@@ -173,7 +245,7 @@ public class ReservationController {
                 //using objectmapper to customize output
                 ObjectMapper mapper = new ObjectMapper();
 
-                String reservationAsJson = mapper.writeValueAsString(reservation);
+                String reservationAsJson = mapper.writeValueAsString(getSortedReservation(reservation));
                 reservationAsJson = reservationAsJson.substring(1, reservationAsJson.length()-2);
 
 
@@ -252,7 +324,7 @@ public class ReservationController {
                 //using objectmapper to customize output
                 ObjectMapper mapper = new ObjectMapper();
 
-                String reservationAsJson = mapper.writeValueAsString(reservation);
+                String reservationAsJson = mapper.writeValueAsString(getSortedReservation(reservation));
                 reservationAsJson = reservationAsJson.substring(1, reservationAsJson.length()-2);
 
 
@@ -328,12 +400,19 @@ public class ReservationController {
 
             List<Reservation> reservations = reservationRepository.findByPassengerAndFlights(passenger, flight);
 
+            //get sorted reseravtion list
+            List<HashMap> reservationSorted = new ArrayList<HashMap>();
+
             if(reservations != null && flight != null && passenger != null) {
 
                 //using objectmapper to customize output
                 ObjectMapper mapper = new ObjectMapper();
 
-                String reservationAsJson = mapper.writeValueAsString(reservations);
+                //loop through all reservations to get sorted list of reservations
+                for(Reservation reservation: reservations){
+                    reservationSorted.add( getSortedReservation(reservation) );
+                }
+                String reservationAsJson = mapper.writeValueAsString(reservationSorted);
 
                 String fullOutput = "{\"reservations\": {\"reservation\":"+reservationAsJson+"}}}";
 

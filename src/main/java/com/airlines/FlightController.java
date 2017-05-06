@@ -6,6 +6,9 @@ import org.json.XML;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 import javax.transaction.Transactional;
 import java.util.*;
 import java.text.DateFormat;
@@ -49,6 +52,12 @@ public class FlightController {
                 code="400";
                 response="Response";
                 break;
+            case "cannot delete flight":
+                msg = "Flight with number " + number + " cannot be deleted as it contains passengers";
+                code="400";
+                response="Response";
+                break;
+
         }
         multiValueMap.put("code",code);
         multiValueMap.put("msg",msg);//"Sorry, the requested flight with number " + number + " does not exist");
@@ -64,12 +73,14 @@ public class FlightController {
         HashMap<String, Object> multiValueMap = new HashMap<String, Object>();
         HashMap<String, Object> multiValueMapForFlight = new HashMap<String, Object>();
 
+        SimpleDateFormat formatDate = new SimpleDateFormat("yyyy-MM-dd HH");
+
         multiValueMapForFlight.put("flightNumber", flight.getFlightNumber());
         multiValueMapForFlight.put("price", flight.getPrice());
         multiValueMapForFlight.put("from", flight.getFrom());
         multiValueMapForFlight.put("to", flight.getTo());
-        multiValueMapForFlight.put("departureTime", flight.getDepartureTime());
-        multiValueMapForFlight.put("arrivalTime", flight.getArrivalTime());
+        multiValueMapForFlight.put("departureTime", formatDate.format(flight.getDepartureTime()) );
+        multiValueMapForFlight.put("arrivalTime", formatDate.format(flight.getArrivalTime()) );
         multiValueMapForFlight.put("description", flight.getDescription());
         multiValueMapForFlight.put("seatsLeft", flight.getSeatsLeft());
         multiValueMapForFlight.put("plane", flight.getPlane());
@@ -229,16 +240,23 @@ public class FlightController {
     //Delete flight by flight number
     @RequestMapping(path="/flight/{flightNumber}",method = RequestMethod.DELETE)
     public ResponseEntity deleteFlight(@PathVariable("flightNumber")String number) {
-        if(flightRepository.findOne(number) == null) {
 
-            return new ResponseEntity(noFlightFound(number,"not found"), HttpStatus.NOT_FOUND);
-        }
-        else{
+        Flight flight = flightRepository.findOne(number);
+            if(flight == null) {
 
-            flightRepository.delete(number);
-            return new ResponseEntity(noFlightFound(number,"flight deleted"), HttpStatus.OK);
+                return new ResponseEntity(noFlightFound(number,"not found"), HttpStatus.NOT_FOUND);
+            }
+            else{
 
-        }
+                //flight cannot be deleted if it carries at least one passenger
+                if(flight.getPassengers().size() > 0){
+                    return new ResponseEntity( noFlightFound(number, "cannot delete flight"), HttpStatus.OK );
+                }
+
+                flightRepository.delete(number);
+                return new ResponseEntity(noFlightFound(number,"flight deleted"), HttpStatus.OK);
+
+            }
     }
 
 

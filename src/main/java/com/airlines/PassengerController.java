@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -86,6 +87,9 @@ public class PassengerController {
         List<HashMap> multiValueMapForFlights = new ArrayList<HashMap>();
         HashMap<String, Object> multiValueMapFixForFlights = new HashMap<String, Object>();
 
+        //for date formatting
+        SimpleDateFormat formatDate = new SimpleDateFormat("yyyy-MM-dd HH");
+
         //orderNumber
         multiValueMap.put("orderNumber", (reservation.getOrderNumber()).toString());
 
@@ -102,8 +106,8 @@ public class PassengerController {
             multiValueMapForIndividualFlights.put("price", flight.getPrice());
             multiValueMapForIndividualFlights.put("from", flight.getFrom());
             multiValueMapForIndividualFlights.put("to", flight.getTo());
-            multiValueMapForIndividualFlights.put("departureTime", flight.getDepartureTime());
-            multiValueMapForIndividualFlights.put("arrivalTime", flight.getArrivalTime());
+            multiValueMapForIndividualFlights.put("departureTime", formatDate.format(flight.getDepartureTime()) );
+            multiValueMapForIndividualFlights.put("arrivalTime", formatDate.format(flight.getArrivalTime()) );
             multiValueMapForIndividualFlights.put("description", flight.getDescription());
 
             multiValueMapForFlights.add(multiValueMapForIndividualFlights);

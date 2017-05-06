@@ -6,6 +6,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 
 @Entity //indicates that we are using JPA
+@Table(name="flight", uniqueConstraints={@UniqueConstraint(columnNames = {"flightnumber"})})
 public class Flight {
 
     //private String number; // Each flight has a unique flight number.
